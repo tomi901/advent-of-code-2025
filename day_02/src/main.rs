@@ -12,7 +12,19 @@ fn part_1() -> anyhow::Result<()> {
     println!("Part 1:");
     let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
 
-    let result = add_invalid_ids(&input);
+    let mut result = 0;
+
+    for range_input in input.trim().split(',') {
+        let (from_s, to_s) = range_input.trim().split_once('-').unwrap();
+        let range = from_s.parse::<u64>().unwrap()..=to_s.parse::<u64>().unwrap();
+
+        for n in range {
+            if !is_valid_half(n) {
+                // println!("{}: {}", range_input, n);
+                result += n;
+            }
+        }
+    }
 
     display_result(&result);
     Ok(())
@@ -20,29 +32,28 @@ fn part_1() -> anyhow::Result<()> {
 
 fn part_2() -> anyhow::Result<()> {
     println!("Part 2:");
+    let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
 
-    Ok(())
-}
 
-fn add_invalid_ids(input: &str) -> u64 {
-    let mut sum = 0;
+    let mut result = 0;
 
     for range_input in input.trim().split(',') {
         let (from_s, to_s) = range_input.trim().split_once('-').unwrap();
         let range = from_s.parse::<u64>().unwrap()..=to_s.parse::<u64>().unwrap();
 
         for n in range {
-            if !is_valid(n) {
+            if !is_valid_any_amount(n) {
                 // println!("{}: {}", range_input, n);
-                sum += n;
+                result += n;
             }
         }
     }
 
-    sum
+    display_result(&result);
+    Ok(())
 }
 
-fn is_valid(id: u64) -> bool {
+fn is_valid_half(id: u64) -> bool {
     let s = id.to_string();
     let len: usize = s.len();
 
@@ -50,7 +61,15 @@ fn is_valid(id: u64) -> bool {
         return true;
     }
 
-    for pattern_len in (len / 2)..=(len / 2) {
+    let (first_half, second_half) = s.split_at(len / 2);
+    first_half != second_half
+}
+
+fn is_valid_any_amount(id: u64) -> bool {
+    let s = id.to_string();
+    let len: usize = s.len();
+
+    for pattern_len in 1..=(len / 2) {
         if pattern_len == 0 {
             continue;
         }
