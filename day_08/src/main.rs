@@ -11,6 +11,7 @@ fn main() -> anyhow::Result<()> {
 
 fn part_1() -> anyhow::Result<()> {
     println!("Part 1:");
+
     let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
     let junctions = parse_junctions(&input)?;
     let mut connections = get_possible_connections(&junctions);
@@ -39,6 +40,27 @@ fn part_1() -> anyhow::Result<()> {
 
 fn part_2() -> anyhow::Result<()> {
     println!("Part 2:");
+
+    let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
+    let junctions = parse_junctions(&input)?;
+    let mut connections = get_possible_connections(&junctions);
+
+    sort_connections(&junctions, &mut connections);
+
+    let mut circuits = Vec::<HashSet<usize>>::new();
+
+    let mut i = 0;
+    while circuits.get(0).is_none_or(|c| c.len() < junctions.len()) {
+        let conn = connections[i];
+        merge_connections(&mut circuits, conn.0, conn.1);
+
+        i += 1;
+    }
+
+    let last_conn = connections[i - 1];
+    let result = junctions[last_conn.0].0 * junctions[last_conn.1].0;
+
+    display_result(&result);
 
     Ok(())
 }
