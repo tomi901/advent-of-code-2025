@@ -115,29 +115,10 @@ fn find_largest_area_enclosed(red_tiles: &[Point2D]) -> Option<usize> {
         }
     }
 
-    for y in 0..map.height() {
-        let mut fill = false;
-
-        for x in 0..map.width() {
-            let current_point = Point2D(x as isize, y as isize);
-            let current = *map.get_tile(current_point).unwrap();
-
-            if current == b'^' || current == b'>' {
-                fill = true;
-            } else if current == b'v' || current == b'<' {
-                fill = false;
-            }
-
-            if current == b'.' && fill {
-                map.set_tile(current_point, b'#');
-            }
-        }
-    }
-
-    println!("{}", &map);
+    // println!("{}", &map);
 
     let mut largest = None;
-    'outer: for (i, &point) in compressed_points.iter().enumerate() {
+    for (i, &point) in compressed_points.iter().enumerate() {
         for (j, &other_point) in compressed_points[(i + 1)..].iter().enumerate() {
             let from_x = cmp::min(point.0, other_point.0);
             let to_x = cmp::max(point.0, other_point.0);
@@ -149,7 +130,7 @@ fn find_largest_area_enclosed(red_tiles: &[Point2D]) -> Option<usize> {
                 .all(|p| map.get_tile(p).is_some_and(|&t| t != b'.'));
             if !all_filled {
                 // println!("SKIP");
-                continue 'outer;
+                continue;
             }
 
             let actual_point = red_tiles[i];
