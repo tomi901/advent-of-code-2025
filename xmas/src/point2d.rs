@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops};
+use std::{fmt::Display, num::ParseIntError, ops, str::FromStr};
 use crate::direction::Direction;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
@@ -100,5 +100,31 @@ impl From<(isize, isize)> for Point2D {
 impl From<[isize; 2]> for Point2D {
     fn from(value: [isize; 2]) -> Self {
         Self(value[0], value[1])
+    }
+}
+
+impl FromStr for Point2D {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // TODO: throw proper errors
+
+        let mut sections = s.split(',');
+
+        let x = sections
+            .next()
+            .expect("missing x component")
+            .parse::<isize>()?;
+
+        let y = sections
+            .next()
+            .expect("missing y component")
+            .parse::<isize>()?;
+
+        if sections.next().is_some() {
+            panic!("more than 2 sections for Point2D");
+        }
+
+        Ok(Point2D(x, y))
     }
 }
