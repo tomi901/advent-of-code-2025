@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{self, Context};
+use pathfinding::directed::dijkstra;
 use xmas::display_result;
 
 fn main() -> anyhow::Result<()> {
@@ -12,7 +13,7 @@ fn main() -> anyhow::Result<()> {
 
 fn part_1() -> anyhow::Result<()> {
     println!("Part 1:");
-    let input = std::fs::read_to_string("./test.txt").context("Error reading input file.")?;
+    let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
 
     let machines = input
         .lines()
@@ -20,9 +21,15 @@ fn part_1() -> anyhow::Result<()> {
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
-    println!("{:?}", machines);
+    // for machine in machines {
+    //     println!("{:?}", machine.find_shortest_configuration());
+    // }
 
-    // display_result(&result);
+    let result: u64 = machines
+        .iter()
+        .map(|m| m.find_shortest_configuration().unwrap())
+        .sum();
+    display_result(&result);
     Ok(())
 }
 
@@ -32,11 +39,29 @@ fn part_2() -> anyhow::Result<()> {
     Ok(())
 }
 
+type PathNode = (u64, Option<usize>);
+
 #[derive(Debug)]
 struct Machine {
     target: u64,
     buttons: Vec<u64>,
     joltages: Vec<u64>,
+}
+
+impl Machine {
+    fn find_shortest_configuration(&self) -> Option<u64> {
+        let path = dijkstra::dijkstra(
+            &(0, None),
+            |p: &(u64, Option<usize>)| self.get_successors(p.0, p.1),
+            |p| p.0 == self.target);
+        path.map(|p| p.0.len() as u64 - 1)
+    }
+    
+    fn get_successors(&self, from: u64, previous: Option<usize>) -> impl Iterator<Item = (PathNode, u64)> + '_ {
+        (0..self.buttons.len())
+            .filter(move |&i| previous.is_none_or(|p| p != i))
+            .map(move |i| ((from ^ self.buttons[i], Some(i)), 1))
+    }
 }
 
 impl FromStr for Machine {
