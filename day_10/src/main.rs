@@ -17,7 +17,7 @@ fn part_1() -> anyhow::Result<()> {
 
     let machines = input
         .lines()
-        .map(Machine::from_str)
+        .map(SimpleMachine::from_str)
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
@@ -35,20 +35,39 @@ fn part_1() -> anyhow::Result<()> {
 
 fn part_2() -> anyhow::Result<()> {
     println!("Part 2:");
+    let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
 
+    let machines = input
+        .lines()
+        .map(JoltageMachine::from_str)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+
+    let mut result = 0;
+    for machine in machines {
+        let partial_result = machine.find_shortest_configuration().unwrap();
+        println!("{}", partial_result);
+        result += partial_result;
+    }
+
+    // let result: u64 = machines
+    //     .iter()
+    //     .map(|m| m.find_shortest_configuration().unwrap())
+    //     .sum();
+    display_result(&result);
     Ok(())
 }
 
-type PathNode = (u64, Option<usize>);
+type SimplePathNode = (u64, Option<usize>);
 
 #[derive(Debug)]
-struct Machine {
+struct SimpleMachine {
     target: u64,
     buttons: Vec<u64>,
-    joltages: Vec<u64>,
 }
 
-impl Machine {
+impl SimpleMachine {
     fn find_shortest_configuration(&self) -> Option<u64> {
         let path = dijkstra::dijkstra(
             &(0, None),
@@ -57,14 +76,14 @@ impl Machine {
         path.map(|p| p.0.len() as u64 - 1)
     }
     
-    fn get_successors(&self, from: u64, previous: Option<usize>) -> impl Iterator<Item = (PathNode, u64)> + '_ {
+    fn get_successors(&self, from: u64, previous: Option<usize>) -> impl Iterator<Item = (SimplePathNode, u64)> + '_ {
         (0..self.buttons.len())
             .filter(move |&i| previous.is_none_or(|p| p != i))
             .map(move |i| ((from ^ self.buttons[i], Some(i)), 1))
     }
 }
 
-impl FromStr for Machine {
+impl FromStr for SimpleMachine {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -85,6 +104,83 @@ impl FromStr for Machine {
             });
 
         let mut buttons = Vec::new();
+        loop {
+            let section = split.next();
+            if section.is_none() {
+                panic!("no joltages");
+            }
+
+            let btns = section.unwrap();
+            if btns.starts_with('{') {
+                break;
+            }
+
+            let mut button_group = 0;
+            for btn in btns.trim_start_matches('(').trim_end_matches(')').split(',') {
+                // println!("{}", btn);
+                button_group |= 1 << btn.parse::<u64>().unwrap();
+            }
+
+            buttons.push(button_group);
+        };
+        
+        Ok(Self {
+            target,
+            buttons,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct JoltageMachine {
+    target: Vec<u32>,
+    buttons: Vec<Vec<usize>>,
+}
+
+impl JoltageMachine {
+    fn find_shortest_configuration(&self) -> Option<u64> {
+        // println!("{:?}", self);
+        let start = vec![0u32; self.target.len()];
+        let path = dijkstra::dijkstra(
+            &start,
+            |p: &Vec<u32>| self.get_successors(p),
+            |p| p == &self.target);
+        path.map(|p| p.0.len() as u64 - 1)
+    }
+    
+    fn get_successors(&self, from: &[u32]) -> Vec<(Vec<u32>, u32)> {
+        let buttons = &self.buttons;
+        let target = &self.target;
+
+        (0..buttons.len())
+            .filter_map(move |i| {
+                let mut new_state = from.to_vec();
+                let button = &buttons[i];
+                for &j in button {
+                    let new_value = from[j] + 1;
+                    if new_value > target[j] {
+                        return None;
+                    }
+
+                    new_state[j] = new_value;
+                }
+
+                assert_eq!(new_state.len(), from.len());
+                Some((new_state, 1))
+            })
+            .collect()
+    }
+}
+
+impl FromStr for JoltageMachine {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut split = s.split_whitespace();
+
+        split.next();
+
+        let mut buttons = Vec::new();
         let joltages_s = loop {
             let section = split.next();
             if section.is_none() {
@@ -96,24 +192,22 @@ impl FromStr for Machine {
                 break btns;
             }
 
-            let mut button_group = 0;
+            let mut button_group = Vec::new();
             for btn in btns.trim_start_matches('(').trim_end_matches(')').split(',') {
-                // println!("{}", btn);
-                button_group |= 1 << btn.parse::<u64>().unwrap();
+                button_group.push(btn.parse::<usize>().unwrap());
             }
 
             buttons.push(button_group);
         };
 
-        let mut joltages = Vec::new();
+        let mut target = Vec::new();
         for btn in joltages_s.trim_start_matches('{').trim_end_matches('}').split(',') {
-            joltages.push(btn.parse().unwrap());
+            target.push(btn.parse().unwrap());
         }
         
-        Ok(Machine {
+        Ok(Self {
             target,
             buttons,
-            joltages,
         })
     }
 }
