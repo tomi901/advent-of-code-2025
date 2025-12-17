@@ -33,9 +33,11 @@ fn part_1() -> anyhow::Result<()> {
     Ok(())
 }
 
+// Using https://www.reddit.com/r/adventofcode/comments/1pk87hl/comment/ntp4njq/
+// to solve, I kinda get how it works now
 fn part_2() -> anyhow::Result<()> {
     println!("Part 2:");
-    let input = std::fs::read_to_string("./test.txt").context("Error reading input file.")?;
+    let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
 
     let machines = input
         .lines()
@@ -47,7 +49,7 @@ fn part_2() -> anyhow::Result<()> {
     let mut result = 0;
     for (i, machine) in machines.iter().enumerate() {
         let partial_result = machine.find_shortest_configuration().unwrap();
-        println!("{}", partial_result);
+        // println!("{}", partial_result);
         result += partial_result;
     }
 
@@ -170,7 +172,7 @@ impl JoltageMachine {
                 // println!("{:?}", btn);
                 for &b in btn {
                     if new_remaining[b] == 0 {
-                        break 'validity_for;
+                        continue 'validity_for;
                     }
 
                     new_remaining[b] -= 1;
@@ -179,9 +181,12 @@ impl JoltageMachine {
                 parity_button_presses += 1;
             }
 
+            // println!("{:?}", new_remaining);
+
             for r in new_remaining.iter_mut() {
                 *r /= 2;
             }
+            // println!("{:?}", new_remaining);
 
             if let Some(next_presses_odd) = self.find_shortest_configuration_cached(&new_remaining, cache) {
                 // println!("For {:?} = 2 * {} + {}", new_remaining, next_presses_odd, parity_button_presses);
