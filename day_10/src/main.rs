@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{cmp, collections::HashMap, str::FromStr};
 
 use anyhow::{self, Context};
 use pathfinding::directed::dijkstra;
@@ -35,7 +35,7 @@ fn part_1() -> anyhow::Result<()> {
 
 fn part_2() -> anyhow::Result<()> {
     println!("Part 2:");
-    let input = std::fs::read_to_string("./input.txt").context("Error reading input file.")?;
+    let input = std::fs::read_to_string("./test.txt").context("Error reading input file.")?;
 
     let machines = input
         .lines()
@@ -45,7 +45,7 @@ fn part_2() -> anyhow::Result<()> {
 
 
     let mut result = 0;
-    for machine in machines {
+    for (i, machine) in machines.iter().enumerate() {
         let partial_result = machine.find_shortest_configuration().unwrap();
         println!("{}", partial_result);
         result += partial_result;
@@ -131,44 +131,110 @@ impl FromStr for SimpleMachine {
     }
 }
 
+type JoltageCache = HashMap<Vec<u16>, Option<u64>>;
+
 #[derive(Debug)]
 struct JoltageMachine {
-    target: Vec<u32>,
+    target: Vec<u16>,
     buttons: Vec<Vec<usize>>,
 }
 
 impl JoltageMachine {
     fn find_shortest_configuration(&self) -> Option<u64> {
-        // println!("{:?}", self);
-        let start = vec![0u32; self.target.len()];
-        let path = dijkstra::dijkstra(
-            &start,
-            |p: &Vec<u32>| self.get_successors(p),
-            |p| p == &self.target);
-        path.map(|p| p.0.len() as u64 - 1)
+        let mut cache = JoltageCache::new();
+        self.find_shortest_configuration_cached(&self.target, &mut cache)
     }
-    
-    fn get_successors(&self, from: &[u32]) -> Vec<(Vec<u32>, u32)> {
-        let buttons = &self.buttons;
-        let target = &self.target;
 
-        (0..buttons.len())
-            .filter_map(move |i| {
-                let mut new_state = from.to_vec();
-                let button = &buttons[i];
-                for &j in button {
-                    let new_value = from[j] + 1;
-                    if new_value > target[j] {
-                        return None;
+    fn find_shortest_configuration_cached(&self, remaining: &Vec<u16>, cache: &mut JoltageCache) -> Option<u64> {
+        if remaining.iter().all(|&v| v == 0) {
+            return Some(0);
+        } else if let Some(&cached_result) = cache.get(remaining) {
+            return cached_result;
+        }
+
+        let mut total_button_presses = None;
+
+        // println!();
+        // println!("Calculating {:?}", remaining);
+
+        let valid_button_bitflags = self.find_parity_candidates(remaining.as_slice());
+        'validity_for: for valid in valid_button_bitflags {
+            let mut parity_button_presses = 0;
+
+            // println!();
+            let mut new_remaining = remaining.clone();
+            for btn in (0..self.buttons.len() as u64)
+                .filter(|b| (1 << b) & valid != 0)
+                .map(|b| &self.buttons[b as usize]) {
+
+                // println!("{:?}", btn);
+                for &b in btn {
+                    if new_remaining[b] == 0 {
+                        break 'validity_for;
                     }
 
-                    new_state[j] = new_value;
+                    new_remaining[b] -= 1;
+                }
+                
+                parity_button_presses += 1;
+            }
+
+            for r in new_remaining.iter_mut() {
+                *r /= 2;
+            }
+
+            if let Some(next_presses_odd) = self.find_shortest_configuration_cached(&new_remaining, cache) {
+                // println!("For {:?} = 2 * {} + {}", new_remaining, next_presses_odd, parity_button_presses);
+
+                let calculated_button_presses = next_presses_odd * 2 + parity_button_presses;
+                total_button_presses = Some(match total_button_presses {
+                    Some(previous) => cmp::min(previous, calculated_button_presses),
+                    None => calculated_button_presses,
+                });
+            }
+        }
+
+        // println!();
+        // println!("Cache {:?} = {:?}", remaining, total_button_presses);
+        
+        cache.insert(remaining.clone(), total_button_presses);
+        total_button_presses
+    }
+
+    fn find_parity_candidates(&self, target: &[u16]) -> Vec<u64> {
+        let target_bitflags = {
+            let mut bitflags = 0u64;
+            for (i, &val) in target.iter().enumerate() {
+                if val% 2 != 0 {
+                    bitflags |= 1 << i;
+                }
+            }
+            bitflags
+        };
+
+        // println!("Targeting {:?}, bitwise: {:b}", target, target_bitflags);
+
+        // Since all these buttons toggle odd/even values, we only need to test all possible combinations
+        // of 2^n to see which button combinations will give us the results we want
+        let mut valid_button_bitflags = Vec::new();
+        for evaluate_bitflags in 0u64..(1 << self.buttons.len()) {
+            let mut current_bitflags = 0u64;
+            for (i, btn) in self.buttons.iter().enumerate() {
+                if (1 << i) & evaluate_bitflags == 0 {
+                    continue;
                 }
 
-                assert_eq!(new_state.len(), from.len());
-                Some((new_state, 1))
-            })
-            .collect()
+                for toggle in btn {
+                    current_bitflags ^= 1 << toggle;
+                }
+            }
+
+            if current_bitflags == target_bitflags {
+                valid_button_bitflags.push(evaluate_bitflags);
+            }
+        }
+
+        valid_button_bitflags
     }
 }
 
